@@ -1,16 +1,21 @@
 export default class Block {
-
-    constructor(game, bottomLine, boardConfig, posX, posY, blockType ) {
-
-
-
+    /**
+     * Constructor of the Basic Block Object
+     * @param game - Phaser Game Object
+     * @param bottomLine - Handler to the bottom line
+     * @param boardConfig - Configuration of the object
+     * @param posX - starting position X (in size of board)
+     * @param posY - starting position Y (in size of board)
+     * @param blockType - object with the block setup details
+     */
+    constructor(game, bottomLine, boardConfig, posX, posY, blockType) {
 
         this.blockConfig = {
             rolling: true,
             rollingLock: false,
             delayLock: true,
-            pulledDown : false,
-            pulledDownLock : false
+            pulledDown: false,
+            pulledDownLock: false
         };
         this.type = blockType;
         this.boardConfig = boardConfig;
@@ -34,14 +39,10 @@ export default class Block {
 
     }
 
-    canMoveRight() {
-        return !this.blockConfig.rollingLock && this.posX + 1 < this.boardConfig.boardSize() - 1  && this.fillBottom - this.boardConfig.boardFills[this.posX + 1] * this.boxSized  > Math.floor(this._sprite.y);
-    }
-
-    canMoveLeft() {
-        return !this.blockConfig.rollingLock && this.posX - 1 >= 0 && this.fillBottom - this.boardConfig.boardFills[this.posX - 1] * this.boxSized  > Math.floor(this._sprite.y);
-    }
-
+    /**
+     * Moves Block right if it is possible
+     * @returns {boolean} true is moved, false if cannot move
+     */
     moveRight() {
         if (this.canMoveRight()) {
             this.posX = this.posX + 1;
@@ -51,6 +52,10 @@ export default class Block {
         return false;
     }
 
+    /**
+     * Moves Block left if it is possible
+     * @returns {boolean} true is moved, false if cannot move
+     */
     moveLeft() {
         if (this.canMoveLeft()) {
             this.posX = this.posX - 1;
@@ -60,13 +65,29 @@ export default class Block {
         return false;
     }
 
+    /**
+     * Check if object can be moved into right
+     * @returns {boolean} true if can, false if cannot
+     */
+    canMoveRight() {
+        return !this.blockConfig.rollingLock && this.posX + 1 < this.boardConfig.boardSize() - 1 && this.fillBottom - this.boardConfig.board.arrayFills[this.posX + 1] * this.boxSized > Math.floor(this._sprite.y);
+    }
+
+    /**
+     * Check if object can be moved into left
+     * @returns {boolean} true if can, false if cannot
+     */
+    canMoveLeft() {
+        return !this.blockConfig.rollingLock && this.posX - 1 >= 0 && this.fillBottom - this.boardConfig.board.arrayFills[this.posX - 1] * this.boxSized > Math.floor(this._sprite.y);
+    }
+
     pullDown() {
-        if(this.blockConfig.pulledDownLock == false) {
+        if (this.blockConfig.pulledDownLock == false) {
             this.blockConfig.pulledDownLock = true;
         }
     }
 
-    getType(){
+    getType() {
         return this.type;
     }
 
@@ -87,31 +108,30 @@ export default class Block {
 
     updateCoords() {
         if (this.blockConfig.rolling == true && (!this.blockConfig.delayLock || this.blockConfig.pulledDownLock)) {
-            if(this.blockConfig.pulledDownLock) {
+            if (this.blockConfig.pulledDownLock) {
                 this._sprite.body.velocity.y = this.boardConfig.pullDownSpeed();
             } else {
                 this._sprite.body.velocity.y = this.boardConfig.blockSpeed();
             }
             this.checkHitGround();
-        } else if(this.blockConfig.rolling == false){
-            this._sprite.y = Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized-1);
+        } else if (this.blockConfig.rolling == false) {
+            this._sprite.y = Math.floor(this.fillBottom - (this.boardConfig.board.arrayFills[this.posX]) * this.boxSized - 1);
         }
     }
 
-    checkHitGround(){
-        var calculatedPos = Math.ceil((this.fillBottom - Math.floor(this._sprite.y))/ this.boxSized);// Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized);
-        if(Math.floor(this._sprite.y) >= Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized)){
+    checkHitGround() {
+        var calculatedPos = Math.ceil((this.fillBottom - Math.floor(this._sprite.y)) / this.boxSized);// Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized);
+        if (Math.floor(this._sprite.y) >= Math.floor(this.fillBottom - (this.boardConfig.board.arrayFills[this.posX]) * this.boxSized)) {
             this._sprite.body.velocity.y = 0;
             this.blockConfig.rolling = false;
-            this._sprite.y = Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized-1);
-            this.boardConfig.boardFills[this.posX]++;
+            this._sprite.y = Math.floor(this.fillBottom - (this.boardConfig.board.arrayFills[this.posX]) * this.boxSized - 1);
             this.blockConfig.rollingLock = true;
             this._sprite.body.moves = false;
             this.posY = calculatedPos;
             this.boardConfig.board.setGround(this.posX, calculatedPos, this);
         }
-
     }
+
     setBigCoords(x, y) {
         this._sprite.y = y;
         this._sprite.x = x;
@@ -119,19 +139,33 @@ export default class Block {
         this.posX = Math.floor((this._sprite.x - this.boardConfig.insideStartX()) / this.boardConfig.boxSizeM());
     }
 
-    lockToRemove (){
+    lockToRemove() {
         this._sprite.alpha = 0.7;
         this.status = 1;
     }
-    lockToDestroy (){
+
+    lockToDestroy() {
         this._sprite.alpha = 0.2;
         this.status = 2;
     }
 
-    isLocked(){
+    isLocked() {
         return this.status == 1;
     }
+
+    isDestroyed() {
+        return this.status == 2;
+    }
+
+    rollAgain() {
+        this.blockConfig = {
+            rolling: true,
+            rollingLock: false,
+            delayLock: false,
+            pulledDown: true,
+            pulledDownLock: true,
+            rolledAgain: true
+        };
+        this._sprite.body.moves = true;
+    }
 }
-/**
- * Created by mmitis on 22.01.16.
- */

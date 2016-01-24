@@ -65,6 +65,7 @@ var config = {
     throwDurationDelay: 1500
 };
 
+var board = new _Board2.default(config.width, config.height);
 var boardConfig = {
     startX: function startX() {
         return config.offsetOuter;
@@ -133,7 +134,7 @@ var boardConfig = {
         return config.throwDurationDelay;
     },
     boardFills: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    board: new _Board2.default(config.width, config.height),
+    board: board,
     blockTypes: [{ name: 'Normal', color: 0xE67E22 }, { name: 'Normal', color: 0x2ECC71 }]
 };
 
@@ -156,14 +157,25 @@ var Engine = function () {
             this.generateBlock();
             this.pickControls();
             this.touchLock = false;
+            this._freeBlocks = [];
         }
     }, {
         key: 'update',
         value: function update() {
+            var _this = this;
+
             this._line.updateCoords();
             if (!this._activeBlockGroup.updateGroup()) {
+                this._activeBlockGroup.blocksHold.forEach(function (block) {
+                    _this._freeBlocks.push(block);
+                });
                 this.generateBlock();
             }
+            this._freeBlocks.forEach(function (block) {
+                if (block.isRolling()) {
+                    block.updateCoords();
+                }
+            });
             this.pickTouchControls();
         }
     }, {
@@ -185,7 +197,7 @@ var Engine = function () {
     }, {
         key: 'pickControls',
         value: function pickControls() {
-            var _this = this;
+            var _this2 = this;
 
             var controls = {
                 left: this.game.input.keyboard.addKey(Phaser.Keyboard.LEFT),
@@ -197,19 +209,19 @@ var Engine = function () {
 
             var handleControl = function handleControl() {
                 if (controls.left.isDown) {
-                    _this._activeBlockGroup.moveLeft();
+                    _this2._activeBlockGroup.moveLeft();
                 }
                 if (controls.right.isDown) {
-                    _this._activeBlockGroup.moveRight();
+                    _this2._activeBlockGroup.moveRight();
                 }
                 if (controls.rotateLeft.isDown) {
-                    _this._activeBlockGroup.rotateLeft();
+                    _this2._activeBlockGroup.rotateLeft();
                 }
                 if (controls.rotateRight.isDown) {
-                    _this._activeBlockGroup.rotateRight();
+                    _this2._activeBlockGroup.rotateRight();
                 }
                 if (controls.down.isDown) {
-                    _this._activeBlockGroup.pullDown();
+                    _this2._activeBlockGroup.pullDown();
                 }
             };
             controls.left.onDown.add(handleControl, this);
@@ -221,63 +233,27 @@ var Engine = function () {
     }, {
         key: 'pickTouchControls',
         value: function pickTouchControls() {
-            var _this2 = this;
+            var _this3 = this;
 
-            if (this.swipeHandling(150, this.game) == 0 && this.touchLock == false) {
+            if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY < 250 && this.game.input.activePointer.worldX < 330 && this.touchLock == false) {
                 this.touchLock = true;
                 setTimeout(function () {
-                    _this2.touchLock = false;
-                }, 100);
-                this._activeBlockGroup.rotateLeft();
-            } else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldX < 330 && this.touchLock == false) {
-                this.touchLock = true;
-                setTimeout(function () {
-                    _this2.touchLock = false;
+                    _this3.touchLock = false;
                 }, 100);
                 this._activeBlockGroup.moveLeft();
-            } else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldX > 330 && this.touchLock == false) {
+            } else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY < 250 && this.game.input.activePointer.worldX > 330 && this.touchLock == false) {
                 this.touchLock = true;
                 setTimeout(function () {
-                    _this2.touchLock = false;
+                    _this3.touchLock = false;
                 }, 100);
                 this._activeBlockGroup.moveRight();
+            } else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY > 250 && this.touchLock == false) {
+                this.touchLock = true;
+                setTimeout(function () {
+                    _this3.touchLock = false;
+                }, 100);
+                this._activeBlockGroup.pullDown();
             }
-            ;
-        }
-    }, {
-        key: 'swipeHandling',
-        value: function swipeHandling(distance, game) {
-            var firstPointX = undefined,
-                lastPointX = undefined,
-                firstPointY = undefined,
-                lastPointY = undefined;
-            if (Phaser.Point.distance(game.input.activePointer.position, game.input.activePointer.positionDown) > distance && game.input.activePointer.duration > 100 && game.input.activePointer.duration < 250) {
-                firstPointX = game.input.activePointer.positionDown.x;
-                firstPointY = game.input.activePointer.positionDown.y;
-
-                lastPointX = game.input.activePointer.position.x;
-                lastPointY = game.input.activePointer.position.y;
-
-                if (firstPointX > lastPointX) {
-                    if (firstPointX - lastPointX >= distance) {
-                        return 3;
-                    }
-                } else if (firstPointX < lastPointX) {
-                    if (lastPointX - firstPointX >= distance) {
-                        return 1;
-                    }
-                }
-                if (firstPointY > lastPointY) {
-                    if (firstPointY - lastPointY >= distance) {
-                        return 0;
-                    }
-                } else if (firstPointY < lastPointY) {
-                    if (lastPointY - firstPointY >= distance) {
-                        return 2;
-                    }
-                }
-            }
-            return null;
         }
     }]);
 
@@ -298,6 +274,16 @@ Object.defineProperty(exports, "__esModule", {
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var Block = function () {
+    /**
+     * Constructor of the Basic Block Object
+     * @param game - Phaser Game Object
+     * @param bottomLine - Handler to the bottom line
+     * @param boardConfig - Configuration of the object
+     * @param posX - starting position X (in size of board)
+     * @param posY - starting position Y (in size of board)
+     * @param blockType - object with the block setup details
+     */
+
     function Block(game, bottomLine, boardConfig, posX, posY, blockType) {
         _classCallCheck(this, Block);
 
@@ -329,17 +315,12 @@ var Block = function () {
         this.boxSized = Math.floor(this.boardConfig.boxSizeM());
     }
 
+    /**
+     * Moves Block right if it is possible
+     * @returns {boolean} true is moved, false if cannot move
+     */
+
     _createClass(Block, [{
-        key: "canMoveRight",
-        value: function canMoveRight() {
-            return !this.blockConfig.rollingLock && this.posX + 1 < this.boardConfig.boardSize() - 1 && this.fillBottom - this.boardConfig.boardFills[this.posX + 1] * this.boxSized > Math.floor(this._sprite.y);
-        }
-    }, {
-        key: "canMoveLeft",
-        value: function canMoveLeft() {
-            return !this.blockConfig.rollingLock && this.posX - 1 >= 0 && this.fillBottom - this.boardConfig.boardFills[this.posX - 1] * this.boxSized > Math.floor(this._sprite.y);
-        }
-    }, {
         key: "moveRight",
         value: function moveRight() {
             if (this.canMoveRight()) {
@@ -349,6 +330,12 @@ var Block = function () {
             }
             return false;
         }
+
+        /**
+         * Moves Block left if it is possible
+         * @returns {boolean} true is moved, false if cannot move
+         */
+
     }, {
         key: "moveLeft",
         value: function moveLeft() {
@@ -358,6 +345,28 @@ var Block = function () {
                 return true;
             }
             return false;
+        }
+
+        /**
+         * Check if object can be moved into right
+         * @returns {boolean} true if can, false if cannot
+         */
+
+    }, {
+        key: "canMoveRight",
+        value: function canMoveRight() {
+            return !this.blockConfig.rollingLock && this.posX + 1 < this.boardConfig.boardSize() - 1 && this.fillBottom - this.boardConfig.board.arrayFills[this.posX + 1] * this.boxSized > Math.floor(this._sprite.y);
+        }
+
+        /**
+         * Check if object can be moved into left
+         * @returns {boolean} true if can, false if cannot
+         */
+
+    }, {
+        key: "canMoveLeft",
+        value: function canMoveLeft() {
+            return !this.blockConfig.rollingLock && this.posX - 1 >= 0 && this.fillBottom - this.boardConfig.board.arrayFills[this.posX - 1] * this.boxSized > Math.floor(this._sprite.y);
         }
     }, {
         key: "pullDown",
@@ -402,18 +411,17 @@ var Block = function () {
                 }
                 this.checkHitGround();
             } else if (this.blockConfig.rolling == false) {
-                this._sprite.y = Math.floor(this.fillBottom - this.boardConfig.boardFills[this.posX] * this.boxSized - 1);
+                this._sprite.y = Math.floor(this.fillBottom - this.boardConfig.board.arrayFills[this.posX] * this.boxSized - 1);
             }
         }
     }, {
         key: "checkHitGround",
         value: function checkHitGround() {
             var calculatedPos = Math.ceil((this.fillBottom - Math.floor(this._sprite.y)) / this.boxSized); // Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized);
-            if (Math.floor(this._sprite.y) >= Math.floor(this.fillBottom - this.boardConfig.boardFills[this.posX] * this.boxSized)) {
+            if (Math.floor(this._sprite.y) >= Math.floor(this.fillBottom - this.boardConfig.board.arrayFills[this.posX] * this.boxSized)) {
                 this._sprite.body.velocity.y = 0;
                 this.blockConfig.rolling = false;
-                this._sprite.y = Math.floor(this.fillBottom - this.boardConfig.boardFills[this.posX] * this.boxSized - 1);
-                this.boardConfig.boardFills[this.posX]++;
+                this._sprite.y = Math.floor(this.fillBottom - this.boardConfig.board.arrayFills[this.posX] * this.boxSized - 1);
                 this.blockConfig.rollingLock = true;
                 this._sprite.body.moves = false;
                 this.posY = calculatedPos;
@@ -445,13 +453,28 @@ var Block = function () {
         value: function isLocked() {
             return this.status == 1;
         }
+    }, {
+        key: "isDestroyed",
+        value: function isDestroyed() {
+            return this.status == 2;
+        }
+    }, {
+        key: "rollAgain",
+        value: function rollAgain() {
+            this.blockConfig = {
+                rolling: true,
+                rollingLock: false,
+                delayLock: false,
+                pulledDown: true,
+                pulledDownLock: true,
+                rolledAgain: true
+            };
+            this._sprite.body.moves = true;
+        }
     }]);
 
     return Block;
 }();
-/**
- * Created by mmitis on 22.01.16.
- */
 
 exports.default = Block;
 
@@ -603,7 +626,7 @@ var Board = function () {
         this.width = width;
         this.height = height;
         this.arrayBlocks = [];
-        this.arrayFills = [];
+        this.arrayFills = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         this.arrayList = [];
         for (var i = 0; i < width; i++) {
             this.arrayBlocks[i] = [];
@@ -633,7 +656,6 @@ var Board = function () {
                     if (_this.arrayList.hasOwnProperty(block)) {
                         var prim = _this.arrayList[block];
                         if (typeof self.arrayBlocks[prim.posX + 1][prim.posY] !== 'undefined' && self.arrayBlocks[prim.posX + 1][prim.posY].getType && self.arrayBlocks[prim.posX + 1][prim.posY].getType().color === prim.getType().color && typeof self.arrayBlocks[prim.posX + 1][prim.posY + 1] !== 'undefined' && self.arrayBlocks[prim.posX + 1][prim.posY + 1].getType && self.arrayBlocks[prim.posX + 1][prim.posY + 1].getType().color === prim.getType().color && typeof self.arrayBlocks[prim.posX][prim.posY + 1] !== 'undefined' && self.arrayBlocks[prim.posX][prim.posY + 1].getType && self.arrayBlocks[prim.posX][prim.posY + 1].getType().color === prim.getType().color) {
-                            console.log('Checked', prim.posX, prim.posY);
                             prim.lockToRemove();
                             self.arrayBlocks[prim.posX + 1][prim.posY].lockToRemove();
                             self.arrayBlocks[prim.posX + 1][prim.posY + 1].lockToRemove();
@@ -644,9 +666,23 @@ var Board = function () {
             }, 5);
         }
     }, {
+        key: 'unattach',
+        value: function unattach(block) {
+            this.arrayList.splice(this.arrayList.indexOf(block), 1);
+            this.arrayBlocks[block.posX][block.posY] = 0;
+            this.arrayFills[block.posX]--;
+        }
+    }, {
         key: 'remove',
         value: function remove(block) {
-            this.arrayBlocks[block.posX][block.posY] = 0;
+            this.unattach(block);
+            //Update all above
+            for (var y = block.posY; y < 10; y++) {
+                if (this.arrayBlocks[block.posX][y] && this.arrayBlocks[block.posX][y] !== 0 && !this.arrayBlocks[block.posX][y].isDestroyed()) {
+                    this.arrayBlocks[block.posX][y].rollAgain();
+                    this.unattach(this.arrayBlocks[block.posX][y]);
+                }
+            }
         }
     }]);
 
@@ -713,12 +749,20 @@ var ProgressLine = function () {
     }
 
     _createClass(ProgressLine, [{
+        key: "roundPosition",
+        value: function roundPosition(value) {
+            if (!this._direction) {
+                return Math.floor(value);
+            }
+            return Math.round(value);
+        }
+    }, {
         key: "updateCoords",
         value: function updateCoords() {
             var _this = this;
 
             var self = this;
-            var currentRow = Math.floor((this._sprite.x - this.boardConfig.insideStartX()) / this.boardConfig.boxSizeM());
+            var currentRow = this.roundPosition((this._sprite.x - this.boardConfig.insideStartX()) / this.boardConfig.boxSizeM());
             this._sprite.bringToTop();
             if (this._sprite.x > this.boardConfig.insideEndX() && this._direction == true) {
                 this._direction = false;
@@ -730,6 +774,14 @@ var ProgressLine = function () {
                 this._sprite.body.velocity.x = this.boardConfig.barSpeed();
             }
 
+            this.onChange(currentRow, function (row) {
+
+                if (_this.lastQueue !== 0 && _this.lastQueue === self.removeLocks.length) {
+                    _this.clearRemoveQueue();
+                }
+                _this.lastQueue = self.removeLocks.length;
+            });
+
             if (this.boardConfig.board.arrayBlocks[currentRow]) {
                 this.boardConfig.board.arrayBlocks[currentRow].forEach(function (block) {
                     if (block !== 0 && block.isLocked()) {
@@ -738,11 +790,6 @@ var ProgressLine = function () {
                     }
                 });
             }
-            this.onChange(currentRow, function (changed) {
-                if (changed) {
-                    _this.clearRemoveQueue();
-                }
-            });
         }
     }, {
         key: "clearRemoveQueue",
@@ -761,8 +808,7 @@ var ProgressLine = function () {
         value: function onChange(posX, callback) {
             if (posX !== this.lastIndex) {
                 this.lastIndex = posX;
-                this.lastQueue = this.removeLocks.length;
-                callback(this.lastQueue == this.removeLocks.length);
+                callback(posX);
             }
         }
     }, {

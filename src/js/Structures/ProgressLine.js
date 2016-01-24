@@ -17,9 +17,18 @@ export default class ProgressLine {
         this.lastQueue = 0;
     }
 
+    roundPosition(value){
+        if(!this._direction){
+            return Math.floor(value)
+        }
+        return Math.round(value);
+    }
+
+
+
     updateCoords(){
         var self = this;
-        var currentRow = Math.floor((this._sprite.x - this.boardConfig.insideStartX())/this.boardConfig.boxSizeM());
+        var currentRow = this.roundPosition((this._sprite.x - this.boardConfig.insideStartX())/this.boardConfig.boxSizeM());
         this._sprite.bringToTop();
         if(this._sprite.x > this.boardConfig.insideEndX() && this._direction == true){
             this._direction = false;
@@ -31,6 +40,13 @@ export default class ProgressLine {
             this._sprite.body.velocity.x = this.boardConfig.barSpeed();
         }
 
+        this.onChange(currentRow, (row)=>{
+
+            if(this.lastQueue !== 0 && this.lastQueue === self.removeLocks.length){
+                this.clearRemoveQueue();
+            }
+            this.lastQueue = self.removeLocks.length;
+        });
 
         if(this.boardConfig.board.arrayBlocks[currentRow]) {
             this.boardConfig.board.arrayBlocks[currentRow].forEach(function (block) {
@@ -40,11 +56,7 @@ export default class ProgressLine {
                 }
             })
         }
-        this.onChange(currentRow, (changed)=>{
-            if(changed){
-                this.clearRemoveQueue();
-            }
-        });
+
     }
     clearRemoveQueue(){
         for(let bIndex in this.removeLocks){
@@ -60,8 +72,7 @@ export default class ProgressLine {
     onChange(posX, callback){
         if(posX !== this.lastIndex){
             this.lastIndex = posX;
-            this.lastQueue = this.removeLocks.length;
-            callback(this.lastQueue == this.removeLocks.length);
+            callback(posX);
         }
 
     }

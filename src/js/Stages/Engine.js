@@ -21,7 +21,7 @@ var config = {
     throwDurationDelay: 1500
 };
 
-
+var board = new Board(config.width, config.height);
 var boardConfig = {
         startX      : () =>config.offsetOuter,
         startY      : () =>config.offsetOuter,
@@ -46,7 +46,7 @@ var boardConfig = {
         pullDownSpeed:function(){return config.pullDownSpeed},
         throwDelayDuration: function(){return config.throwDurationDelay},
         boardFills  : [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-        board : new Board(config.width, config.height),
+        board : board,
         blockTypes : [
             { name : 'Normal', color : 0xE67E22 },
             { name : 'Normal', color : 0x2ECC71 }
@@ -67,13 +67,22 @@ export default class Engine {
         this.generateBlock();
         this.pickControls();
         this.touchLock = false;
+        this._freeBlocks = [];
     }
 
     update(){
         this._line.updateCoords();
         if(!this._activeBlockGroup.updateGroup()){
+            this._activeBlockGroup.blocksHold.forEach((block)=>{
+                this._freeBlocks.push(block);
+            });
             this.generateBlock();
         }
+        this._freeBlocks.forEach((block)=>{
+            if(block.isRolling()){
+                block.updateCoords();
+            }
+        });
         this.pickTouchControls()
 
 
@@ -128,63 +137,25 @@ export default class Engine {
     }
 
     pickTouchControls() {
-
-
-        if(this.swipeHandling(150, this.game) == 0 && this.touchLock == false){
-            this.touchLock = true;
-            setTimeout(()=>{
-                this.touchLock = false;
-            }, 100);
-            this._activeBlockGroup.rotateLeft();
-        }
-        else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldX < 330 && this.touchLock == false) {
+        if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY < 250 && this.game.input.activePointer.worldX < 330 && this.touchLock == false) {
             this.touchLock = true;
             setTimeout(()=>{
                 this.touchLock = false;
             }, 100);
             this._activeBlockGroup.moveLeft();
         }
-        else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldX > 330 && this.touchLock == false) {
+        else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY < 250 && this.game.input.activePointer.worldX > 330 && this.touchLock == false) {
             this.touchLock = true;
             setTimeout(()=>{
                 this.touchLock = false;
             }, 100);
             this._activeBlockGroup.moveRight();
+        } else if (this.game.input.activePointer.isDown && this.game.input.activePointer.worldY > 250 && this.touchLock == false) {
+            this.touchLock = true;
+            setTimeout(()=>{
+                this.touchLock = false;
+            }, 100);
+            this._activeBlockGroup.pullDown();
         }
-;
-
-    }
-
-    swipeHandling(distance, game) {
-        let firstPointX, lastPointX, firstPointY, lastPointY;
-        if (Phaser.Point.distance(game.input.activePointer.position, game.input.activePointer.positionDown) > distance && game.input.activePointer.duration > 100 && game.input.activePointer.duration < 250)
-        {
-            firstPointX = game.input.activePointer.positionDown.x;
-            firstPointY = game.input.activePointer.positionDown.y;
-
-            lastPointX = game.input.activePointer.position.x;
-            lastPointY = game.input.activePointer.position.y;
-
-                if(firstPointX > lastPointX){
-                    if ( firstPointX - lastPointX >= distance ) {
-                        return 3;
-                    }
-                } else if(firstPointX < lastPointX){
-                    if ( lastPointX - firstPointX >= distance ) {
-                        return 1;
-                    }
-                }
-                if(firstPointY > lastPointY){
-                    if ( firstPointY - lastPointY >= distance ) {
-                        return 0;
-                    }
-
-                } else if(firstPointY < lastPointY) {
-                    if (lastPointY - firstPointY >= distance) {
-                        return 2;
-                    }
-                }
-        }
-        return null;
     }
 }

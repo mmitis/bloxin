@@ -7,7 +7,7 @@ export default class Board {
         this.width = width;
         this.height = height;
         this.arrayBlocks = [];
-        this.arrayFills = [];
+        this.arrayFills = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
         this.arrayList = [];
         for(var i = 0; i < width; i++) {
             this.arrayBlocks[i] = [];
@@ -25,7 +25,6 @@ export default class Board {
         this.scanBoard(x,y, block);
     }
 
-
     scanBoard(x,y){
         var self = this;
         setTimeout(()=>{
@@ -36,7 +35,6 @@ export default class Board {
                         (typeof self.arrayBlocks[prim.posX+1][prim.posY+1] !== 'undefined' && self.arrayBlocks[prim.posX+1][prim.posY+1].getType && self.arrayBlocks[prim.posX+1][prim.posY+1].getType().color === prim.getType().color) &&
                         (typeof self.arrayBlocks[prim.posX][prim.posY+1] !== 'undefined' && self.arrayBlocks[prim.posX][prim.posY+1].getType && self.arrayBlocks[prim.posX][prim.posY+1].getType().color === prim.getType().color)
                     ){
-                        console.log('Checked', prim.posX, prim.posY);
                         prim.lockToRemove();
                         self.arrayBlocks[prim.posX+1][prim.posY].lockToRemove();
                         self.arrayBlocks[prim.posX+1][prim.posY+1].lockToRemove();
@@ -49,8 +47,22 @@ export default class Board {
 
     }
 
-    remove(block){
+    unattach(block){
+        this.arrayList.splice(this.arrayList.indexOf(block), 1);
         this.arrayBlocks[block.posX][block.posY] = 0;
+        this.arrayFills[block.posX]--;
+
+    }
+
+    remove(block){
+        this.unattach(block);
+        //Update all above
+        for(let y = block.posY; y < 10; y++){
+            if(this.arrayBlocks[block.posX][y] && this.arrayBlocks[block.posX][y] !== 0 && !this.arrayBlocks[block.posX][y].isDestroyed()){
+                this.arrayBlocks[block.posX][y].rollAgain();
+                this.unattach(this.arrayBlocks[block.posX][y]);
+            }
+        }
     }
 
 }
