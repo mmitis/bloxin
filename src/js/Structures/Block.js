@@ -81,12 +81,19 @@ export default class Block {
         return !this.blockConfig.rollingLock && this.posX - 1 >= 0 && this.fillBottom - this.boardConfig.board.arrayFills[this.posX - 1] * this.boxSized > Math.floor(this._sprite.y);
     }
 
+    /**
+     * Force block to be pulled down faster (and lock changing direction)
+     */
     pullDown() {
         if (this.blockConfig.pulledDownLock == false) {
             this.blockConfig.pulledDownLock = true;
         }
     }
 
+    /**
+     * Gets type of the block
+     * @returns object with the block settings
+     */
     getType() {
         return this.type;
     }
