@@ -98,21 +98,37 @@ export default class Block {
         return this.type;
     }
 
+    /**
+     * Check if it is still rollin mode
+     * @returns true if rolling, false if not
+     */
     isRolling() {
         return this.blockConfig.rolling;
     }
 
+    /**
+     * Set position by the X/y coords in the boards
+     * @param x - position on t he X axis
+     * @param y - position on the Y axis
+     */
     setPosition(x, y) {
         this._sprite.x = x;
         this._sprite.y = y;
     }
 
+    /**
+     * Helping method for handling small delay before block starts moving down
+     */
     thowDelay() {
         setTimeout(()=> {
             this.blockConfig.delayLock = false;
         }, this.boardConfig.throwDelayDuration());
     }
 
+
+    /**
+     * Base function which is used in loop to set update of the coords or rolling status
+     */
     updateCoords() {
         if (this.blockConfig.rolling == true && (!this.blockConfig.delayLock || this.blockConfig.pulledDownLock)) {
             if (this.blockConfig.pulledDownLock) {
@@ -126,6 +142,10 @@ export default class Block {
         }
     }
 
+    /**
+     * FUnction which Checs if the block is not hitting the ground or any other block
+     * (if yes, it lock block on the correct position)
+     */
     checkHitGround() {
         var calculatedPos = Math.ceil((this.fillBottom - Math.floor(this._sprite.y)) / this.boxSized);// Math.floor(this.fillBottom - (this.boardConfig.boardFills[this.posX]) * this.boxSized);
         if (Math.floor(this._sprite.y) >= Math.floor(this.fillBottom - (this.boardConfig.board.arrayFills[this.posX]) * this.boxSized)) {
@@ -164,6 +184,9 @@ export default class Block {
         return this.status == 2;
     }
 
+    /**
+     * Sets rolling status after block has already stopped.
+     */
     rollAgain() {
         this.blockConfig = {
             rolling: true,
